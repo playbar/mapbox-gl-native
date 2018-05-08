@@ -34,3 +34,5 @@ xcuserdata
 test/fixtures/api/assets.zip
 test/fixtures/storage/assets.zip
 /.circle-week
+.idea
+cmake-build-debug

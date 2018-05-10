@@ -22,6 +22,13 @@ MapWindow::MapWindow(const QMapboxGLSettings &settings)
     setWindowIcon(QIcon(":icon.png"));
 }
 
+MapWindow::~MapWindow()
+{
+    // Make sure we have a valid context so we
+    // can delete the QMapboxGL.
+    makeCurrent();
+}
+
 void MapWindow::selfTest()
 {
     if (m_bearingAnimation) {
@@ -442,10 +449,9 @@ void MapWindow::initializeGL()
 void MapWindow::paintGL()
 {
     m_frameDraws++;
-    m_map->resize(size(), size() * pixelRatio());
+    m_map->resize(size());
 #if QT_VERSION >= 0x050400
-    // When we're using QOpenGLWidget, we need to tell Mapbox GL about the framebuffer we're using.
-    m_map->setFramebufferObject(defaultFramebufferObject());
+    m_map->setFramebufferObject(defaultFramebufferObject(), size() * pixelRatio());
 #endif
     m_map->render();
 }

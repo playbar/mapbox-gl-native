@@ -103,6 +103,38 @@ Value ValueConverter<mbgl::Value>::toExpressionValue(const mbgl::Value& value) {
     return mbgl::Value::visit(value, FromMBGLValue());
 }
 
+mbgl::Value ValueConverter<mbgl::Value>::fromExpressionValue(const Value& value) {
+    return value.match(
+        [&](const Color& color)->mbgl::Value {
+            std::array<double, 4> array = color.toArray();
+            return std::vector<mbgl::Value>{
+                std::string("rgba"),
+                array[0],
+                array[1],
+                array[2],
+                array[3],
+            };
+        },
+        [&](const std::vector<Value>& values)->mbgl::Value {
+            std::vector<mbgl::Value> converted;
+            converted.reserve(values.size());
+            for (const Value& v : values) {
+                converted.emplace_back(fromExpressionValue(v));
+            }
+            return converted;
+        },
+        [&](const std::unordered_map<std::string, Value>& values)->mbgl::Value {
+            std::unordered_map<std::string, mbgl::Value> converted;
+            converted.reserve(values.size());
+            for(const auto& entry : values) {
+                converted.emplace(entry.first, fromExpressionValue(entry.second));
+            }
+            return converted;
+        },
+        [&](const auto& a)->mbgl::Value { return a; }
+    );
+}
+
 Value ValueConverter<float>::toExpressionValue(const float value) {
     return static_cast<double>(value);
 }
@@ -237,7 +269,7 @@ template <> type::Type valueTypeToExpressionType<type::ErrorType>() { return typ
 
 
 template Value toExpressionValue(const mbgl::Value&);
-
+template optional<mbgl::Value> fromExpressionValue<mbgl::Value>(const Value&);
 
 // for to_rgba expression
 template type::Type valueTypeToExpressionType<std::array<double, 4>>();
@@ -304,6 +336,10 @@ template Value toExpressionValue(const TextTransformType&);
 template type::Type valueTypeToExpressionType<TranslateAnchorType>();
 template optional<TranslateAnchorType> fromExpressionValue<TranslateAnchorType>(const Value&);
 template Value toExpressionValue(const TranslateAnchorType&);
+
+template type::Type valueTypeToExpressionType<HillshadeIlluminationAnchorType>();
+template optional<HillshadeIlluminationAnchorType> fromExpressionValue<HillshadeIlluminationAnchorType>(const Value&);
+template Value toExpressionValue(const HillshadeIlluminationAnchorType&);
 
 template type::Type valueTypeToExpressionType<LightAnchorType>();
 template optional<LightAnchorType> fromExpressionValue<LightAnchorType>(const Value&);

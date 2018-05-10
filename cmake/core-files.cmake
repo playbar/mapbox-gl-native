@@ -1,4 +1,4 @@
-# Do not edit. Regenerate this with ./scripts/generate-core-files.sh
+# This file is generated. Do not edit. Regenerate this with scripts/generate-cmake-files.js
 
 set(MBGL_CORE_FILES
     # actor
@@ -44,6 +44,8 @@ set(MBGL_CORE_FILES
     # geometry
     src/mbgl/geometry/anchor.hpp
     src/mbgl/geometry/debug_font_data.hpp
+    src/mbgl/geometry/dem_data.cpp
+    src/mbgl/geometry/dem_data.hpp
     src/mbgl/geometry/feature_index.cpp
     src/mbgl/geometry/feature_index.hpp
     src/mbgl/geometry/line_atlas.cpp
@@ -144,6 +146,14 @@ set(MBGL_CORE_FILES
     src/mbgl/programs/fill_extrusion_program.hpp
     src/mbgl/programs/fill_program.cpp
     src/mbgl/programs/fill_program.hpp
+    src/mbgl/programs/heatmap_program.cpp
+    src/mbgl/programs/heatmap_program.hpp
+    src/mbgl/programs/heatmap_texture_program.cpp
+    src/mbgl/programs/heatmap_texture_program.hpp
+    src/mbgl/programs/hillshade_prepare_program.cpp
+    src/mbgl/programs/hillshade_prepare_program.hpp
+    src/mbgl/programs/hillshade_program.cpp
+    src/mbgl/programs/hillshade_program.hpp
     src/mbgl/programs/line_program.cpp
     src/mbgl/programs/line_program.hpp
     src/mbgl/programs/program.hpp
@@ -164,6 +174,7 @@ set(MBGL_CORE_FILES
     include/mbgl/renderer/renderer.hpp
     include/mbgl/renderer/renderer_backend.hpp
     include/mbgl/renderer/renderer_frontend.hpp
+    include/mbgl/renderer/renderer_observer.hpp
     src/mbgl/renderer/backend_scope.cpp
     src/mbgl/renderer/bucket.hpp
     src/mbgl/renderer/bucket_parameters.cpp
@@ -200,7 +211,6 @@ set(MBGL_CORE_FILES
     src/mbgl/renderer/renderer_backend.cpp
     src/mbgl/renderer/renderer_impl.cpp
     src/mbgl/renderer/renderer_impl.hpp
-    src/mbgl/renderer/renderer_observer.hpp
     src/mbgl/renderer/style_diff.cpp
     src/mbgl/renderer/style_diff.hpp
     src/mbgl/renderer/tile_mask.hpp
@@ -219,6 +229,10 @@ set(MBGL_CORE_FILES
     src/mbgl/renderer/buckets/fill_bucket.hpp
     src/mbgl/renderer/buckets/fill_extrusion_bucket.cpp
     src/mbgl/renderer/buckets/fill_extrusion_bucket.hpp
+    src/mbgl/renderer/buckets/heatmap_bucket.cpp
+    src/mbgl/renderer/buckets/heatmap_bucket.hpp
+    src/mbgl/renderer/buckets/hillshade_bucket.cpp
+    src/mbgl/renderer/buckets/hillshade_bucket.hpp
     src/mbgl/renderer/buckets/line_bucket.cpp
     src/mbgl/renderer/buckets/line_bucket.hpp
     src/mbgl/renderer/buckets/raster_bucket.cpp
@@ -237,6 +251,10 @@ set(MBGL_CORE_FILES
     src/mbgl/renderer/layers/render_fill_extrusion_layer.hpp
     src/mbgl/renderer/layers/render_fill_layer.cpp
     src/mbgl/renderer/layers/render_fill_layer.hpp
+    src/mbgl/renderer/layers/render_heatmap_layer.cpp
+    src/mbgl/renderer/layers/render_heatmap_layer.hpp
+    src/mbgl/renderer/layers/render_hillshade_layer.cpp
+    src/mbgl/renderer/layers/render_hillshade_layer.hpp
     src/mbgl/renderer/layers/render_line_layer.cpp
     src/mbgl/renderer/layers/render_line_layer.hpp
     src/mbgl/renderer/layers/render_raster_layer.cpp
@@ -251,6 +269,8 @@ set(MBGL_CORE_FILES
     src/mbgl/renderer/sources/render_geojson_source.hpp
     src/mbgl/renderer/sources/render_image_source.cpp
     src/mbgl/renderer/sources/render_image_source.hpp
+    src/mbgl/renderer/sources/render_raster_dem_source.cpp
+    src/mbgl/renderer/sources/render_raster_dem_source.hpp
     src/mbgl/renderer/sources/render_raster_source.cpp
     src/mbgl/renderer/sources/render_raster_source.hpp
     src/mbgl/renderer/sources/render_vector_source.cpp
@@ -285,6 +305,14 @@ set(MBGL_CORE_FILES
     src/mbgl/shaders/fill_outline_pattern.hpp
     src/mbgl/shaders/fill_pattern.cpp
     src/mbgl/shaders/fill_pattern.hpp
+    src/mbgl/shaders/heatmap.cpp
+    src/mbgl/shaders/heatmap.hpp
+    src/mbgl/shaders/heatmap_texture.cpp
+    src/mbgl/shaders/heatmap_texture.hpp
+    src/mbgl/shaders/hillshade.cpp
+    src/mbgl/shaders/hillshade.hpp
+    src/mbgl/shaders/hillshade_prepare.cpp
+    src/mbgl/shaders/hillshade_prepare.hpp
     src/mbgl/shaders/line.cpp
     src/mbgl/shaders/line.hpp
     src/mbgl/shaders/line_pattern.cpp
@@ -333,6 +361,7 @@ set(MBGL_CORE_FILES
     include/mbgl/style/data_driven_property_value.hpp
     include/mbgl/style/filter.hpp
     include/mbgl/style/filter_evaluator.hpp
+    include/mbgl/style/heatmap_color_property_value.hpp
     include/mbgl/style/image.hpp
     include/mbgl/style/layer.hpp
     include/mbgl/style/layer_type.hpp
@@ -347,6 +376,8 @@ set(MBGL_CORE_FILES
     src/mbgl/style/collection.hpp
     src/mbgl/style/custom_tile_loader.cpp
     src/mbgl/style/custom_tile_loader.hpp
+    src/mbgl/style/filter.cpp
+    src/mbgl/style/filter_evaluator.cpp
     src/mbgl/style/image.cpp
     src/mbgl/style/image_impl.cpp
     src/mbgl/style/image_impl.hpp
@@ -379,12 +410,12 @@ set(MBGL_CORE_FILES
     include/mbgl/style/conversion/coordinate.hpp
     include/mbgl/style/conversion/custom_geometry_source_options.hpp
     include/mbgl/style/conversion/data_driven_property_value.hpp
-    include/mbgl/style/conversion/expression.hpp
     include/mbgl/style/conversion/filter.hpp
     include/mbgl/style/conversion/function.hpp
     include/mbgl/style/conversion/geojson.hpp
     include/mbgl/style/conversion/geojson_options.hpp
     include/mbgl/style/conversion/get_json_type.hpp
+    include/mbgl/style/conversion/heatmap_color_property_value.hpp
     include/mbgl/style/conversion/layer.hpp
     include/mbgl/style/conversion/light.hpp
     include/mbgl/style/conversion/position.hpp
@@ -426,6 +457,7 @@ set(MBGL_CORE_FILES
     include/mbgl/style/expression/interpolate.hpp
     include/mbgl/style/expression/is_constant.hpp
     include/mbgl/style/expression/is_expression.hpp
+    include/mbgl/style/expression/length.hpp
     include/mbgl/style/expression/let.hpp
     include/mbgl/style/expression/literal.hpp
     include/mbgl/style/expression/match.hpp
@@ -448,6 +480,7 @@ set(MBGL_CORE_FILES
     src/mbgl/style/expression/interpolate.cpp
     src/mbgl/style/expression/is_constant.cpp
     src/mbgl/style/expression/is_expression.cpp
+    src/mbgl/style/expression/length.cpp
     src/mbgl/style/expression/let.cpp
     src/mbgl/style/expression/literal.cpp
     src/mbgl/style/expression/match.cpp
@@ -479,6 +512,8 @@ set(MBGL_CORE_FILES
     include/mbgl/style/layers/custom_layer.hpp
     include/mbgl/style/layers/fill_extrusion_layer.hpp
     include/mbgl/style/layers/fill_layer.hpp
+    include/mbgl/style/layers/heatmap_layer.hpp
+    include/mbgl/style/layers/hillshade_layer.hpp
     include/mbgl/style/layers/line_layer.hpp
     include/mbgl/style/layers/raster_layer.hpp
     include/mbgl/style/layers/symbol_layer.hpp
@@ -505,6 +540,16 @@ set(MBGL_CORE_FILES
     src/mbgl/style/layers/fill_layer_impl.hpp
     src/mbgl/style/layers/fill_layer_properties.cpp
     src/mbgl/style/layers/fill_layer_properties.hpp
+    src/mbgl/style/layers/heatmap_layer.cpp
+    src/mbgl/style/layers/heatmap_layer_impl.cpp
+    src/mbgl/style/layers/heatmap_layer_impl.hpp
+    src/mbgl/style/layers/heatmap_layer_properties.cpp
+    src/mbgl/style/layers/heatmap_layer_properties.hpp
+    src/mbgl/style/layers/hillshade_layer.cpp
+    src/mbgl/style/layers/hillshade_layer_impl.cpp
+    src/mbgl/style/layers/hillshade_layer_impl.hpp
+    src/mbgl/style/layers/hillshade_layer_properties.cpp
+    src/mbgl/style/layers/hillshade_layer_properties.hpp
     src/mbgl/style/layers/line_layer.cpp
     src/mbgl/style/layers/line_layer_impl.cpp
     src/mbgl/style/layers/line_layer_impl.hpp
@@ -525,6 +570,7 @@ set(MBGL_CORE_FILES
     include/mbgl/style/sources/custom_geometry_source.hpp
     include/mbgl/style/sources/geojson_source.hpp
     include/mbgl/style/sources/image_source.hpp
+    include/mbgl/style/sources/raster_dem_source.hpp
     include/mbgl/style/sources/raster_source.hpp
     include/mbgl/style/sources/vector_source.hpp
     src/mbgl/style/sources/custom_geometry_source.cpp
@@ -536,6 +582,7 @@ set(MBGL_CORE_FILES
     src/mbgl/style/sources/image_source.cpp
     src/mbgl/style/sources/image_source_impl.cpp
     src/mbgl/style/sources/image_source_impl.hpp
+    src/mbgl/style/sources/raster_dem_source.cpp
     src/mbgl/style/sources/raster_source.cpp
     src/mbgl/style/sources/raster_source_impl.cpp
     src/mbgl/style/sources/raster_source_impl.hpp
@@ -587,6 +634,10 @@ set(MBGL_CORE_FILES
     src/mbgl/tile/geometry_tile_data.hpp
     src/mbgl/tile/geometry_tile_worker.cpp
     src/mbgl/tile/geometry_tile_worker.hpp
+    src/mbgl/tile/raster_dem_tile.cpp
+    src/mbgl/tile/raster_dem_tile.hpp
+    src/mbgl/tile/raster_dem_tile_worker.cpp
+    src/mbgl/tile/raster_dem_tile_worker.hpp
     src/mbgl/tile/raster_tile.cpp
     src/mbgl/tile/raster_tile.hpp
     src/mbgl/tile/raster_tile_worker.cpp
@@ -697,11 +748,11 @@ set(MBGL_CORE_FILES
     src/mbgl/util/stopwatch.hpp
     src/mbgl/util/string.cpp
     src/mbgl/util/thread_local.hpp
-    src/mbgl/util/throttler.cpp
-    src/mbgl/util/throttler.hpp
     src/mbgl/util/tile_coordinate.hpp
     src/mbgl/util/tile_cover.cpp
     src/mbgl/util/tile_cover.hpp
+    src/mbgl/util/tile_cover_impl.cpp
+    src/mbgl/util/tile_cover_impl.hpp
     src/mbgl/util/tile_range.hpp
     src/mbgl/util/tiny_sdf.cpp
     src/mbgl/util/tiny_sdf.hpp
@@ -712,4 +763,5 @@ set(MBGL_CORE_FILES
     src/mbgl/util/version.cpp
     src/mbgl/util/version.hpp
     src/mbgl/util/work_request.cpp
+
 )

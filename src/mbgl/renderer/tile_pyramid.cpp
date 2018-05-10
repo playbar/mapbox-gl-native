@@ -56,6 +56,11 @@ std::vector<std::reference_wrapper<RenderTile>> TilePyramid::getRenderTiles() {
     return { renderTiles.begin(), renderTiles.end() };
 }
 
+Tile* TilePyramid::getTile(const OverscaledTileID& tileID){
+        auto it = tiles.find(tileID);
+        return it == tiles.end() ? cache.get(tileID) : it->second.get();
+}
+
 void TilePyramid::update(const std::vector<Immutable<style::Layer::Impl>>& layers,
                          const bool needsRendering,
                          const bool needsRelayout,
@@ -138,16 +143,19 @@ void TilePyramid::update(const std::vector<Immutable<style::Layer::Impl>>& layer
         auto it = tiles.find(tileID);
         return it == tiles.end() ? nullptr : it->second.get();
     };
-    
+
+    // The min and max zoom for TileRange are based on the updateRenderables algorithm.
+    // Tiles are created at the ideal tile zoom or at lower zoom levels. Child
+    // tiles are used from the cache, but not created.
     optional<util::TileRange> tileRange = {};
     if (bounds) {
-        tileRange = util::TileRange::fromLatLngBounds(*bounds, std::min(tileZoom, (int32_t)zoomRange.max));
+        tileRange = util::TileRange::fromLatLngBounds(*bounds, zoomRange.min, std::min(tileZoom, (int32_t)zoomRange.max));
     }
     auto createTileFn = [&](const OverscaledTileID& tileID) -> Tile* {
         if (tileRange && !tileRange->contains(tileID.canonical)) {
             return nullptr;
         }
-        std::unique_ptr<Tile> tile = cache.get(tileID);
+        std::unique_ptr<Tile> tile = cache.pop(tileID);
         if (!tile) {
             tile = createTile(tileID);
             if (tile) {
@@ -234,7 +242,7 @@ std::unordered_map<std::string, std::vector<Feature>> TilePyramid::queryRendered
                                            const TransformState& transformState,
                                            const std::vector<const RenderLayer*>& layers,
                                            const RenderedQueryOptions& options,
-                                           const CollisionIndex& collisionIndex) const {
+                                           const mat4& projMatrix) const {
     std::unordered_map<std::string, std::vector<Feature>> result;
     if (renderTiles.empty() || geometry.empty()) {
         return result;
@@ -256,14 +264,19 @@ std::unordered_map<std::string, std::vector<Feature>> TilePyramid::queryRendered
             std::tie(b.id.canonical.z, b.id.canonical.y, b.id.wrap, b.id.canonical.x);
     });
 
+    auto maxPitchScaleFactor = transformState.maxPitchScaleFactor();
+
     for (const RenderTile& renderTile : sortedTiles) {
+        const float scale = std::pow(2, transformState.getZoom() - renderTile.id.canonical.z);
+        auto queryPadding = maxPitchScaleFactor * renderTile.tile.getQueryPadding(layers) * util::EXTENT / util::tileSize / scale;
+
         GeometryCoordinate tileSpaceBoundsMin = TileCoordinate::toGeometryCoordinate(renderTile.id, box.min);
-        if (tileSpaceBoundsMin.x >= util::EXTENT || tileSpaceBoundsMin.y >= util::EXTENT) {
+        if (tileSpaceBoundsMin.x - queryPadding >= util::EXTENT || tileSpaceBoundsMin.y - queryPadding >= util::EXTENT) {
             continue;
         }
 
         GeometryCoordinate tileSpaceBoundsMax = TileCoordinate::toGeometryCoordinate(renderTile.id, box.max);
-        if (tileSpaceBoundsMax.x < 0 || tileSpaceBoundsMax.y < 0) {
+        if (tileSpaceBoundsMax.x + queryPadding < 0 || tileSpaceBoundsMax.y + queryPadding < 0) {
             continue;
         }
 
@@ -278,7 +291,7 @@ std::unordered_map<std::string, std::vector<Feature>> TilePyramid::queryRendered
                                               transformState,
                                               layers,
                                               options,
-                                              collisionIndex);
+                                              projMatrix);
     }
 
     return result;
@@ -298,7 +311,7 @@ void TilePyramid::setCacheSize(size_t size) {
     cache.setSize(size);
 }
 
-void TilePyramid::onLowMemory() {
+void TilePyramid::reduceMemoryUse() {
     cache.clear();
 }
 

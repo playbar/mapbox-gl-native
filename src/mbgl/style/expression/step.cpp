@@ -40,6 +40,12 @@ void Step::eachChild(const std::function<void(const Expression&)>& visit) const 
     }
 }
 
+void Step::eachStop(const std::function<void(double, const Expression&)>& visit) const {
+    for (const auto &stop : stops) {
+        visit(stop.first, *stop.second);
+    }
+}
+
 bool Step::operator==(const Expression& e) const {
     if (auto rhs = dynamic_cast<const Step*>(&e)) {
         return *input == *(rhs->input) && Expression::childrenEqual(stops, rhs->stops);
@@ -162,6 +168,18 @@ ParseResult Step::parse(const mbgl::style::conversion::Convertible& value, Parsi
     return ParseResult(std::make_unique<Step>(*outputType, std::move(*input), std::move(stops)));
 }
 
+mbgl::Value Step::serialize() const {
+    std::vector<mbgl::Value> serialized;
+    serialized.emplace_back(getOperator());
+    serialized.emplace_back(input->serialize());
+    for (auto& entry : stops) {
+        if (entry.first > -std::numeric_limits<double>::infinity()) {
+            serialized.emplace_back(entry.first);
+        }
+        serialized.emplace_back(entry.second->serialize());
+    }
+    return serialized;
+}
 
 } // namespace expression
 } // namespace style

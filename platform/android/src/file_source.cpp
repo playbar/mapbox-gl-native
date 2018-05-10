@@ -70,15 +70,24 @@ void FileSource::resume(jni::JNIEnv&) {
 
     activationCounter.value()++;
     if (activationCounter == 1) {
-       fileSource->resume();
+        fileSource->resume();
     }
 }
 
 void FileSource::pause(jni::JNIEnv&) {
-    activationCounter.value()--;
-    if (activationCounter == 0) {
-        fileSource->pause();
+    if (activationCounter) {
+        activationCounter.value()--;
+        if (activationCounter == 0) {
+            fileSource->pause();
+        }
     }
+}
+
+jni::jboolean FileSource::isResumed(jni::JNIEnv&) {
+    if (activationCounter) {
+       return  (jboolean) (activationCounter > 0);
+    }
+    return (jboolean) false;
 }
 
 jni::Class<FileSource> FileSource::javaClass;
@@ -112,7 +121,8 @@ void FileSource::registerNative(jni::JNIEnv& env) {
         METHOD(&FileSource::setAPIBaseUrl, "setApiBaseUrl"),
         METHOD(&FileSource::setResourceTransform, "setResourceTransform"),
         METHOD(&FileSource::resume, "activate"),
-        METHOD(&FileSource::pause, "deactivate")
+        METHOD(&FileSource::pause, "deactivate"),
+        METHOD(&FileSource::isResumed, "isActivated")
     );
 }
 
@@ -124,8 +134,11 @@ jni::Class<FileSource::ResourceTransformCallback> FileSource::ResourceTransformC
 std::string FileSource::ResourceTransformCallback::onURL(jni::JNIEnv& env, jni::Object<FileSource::ResourceTransformCallback> callback, int kind, std::string url_) {
     static auto method = FileSource::ResourceTransformCallback::javaClass.GetMethod<jni::String (jni::jint, jni::String)>(env, "onURL");
     auto url = jni::Make<jni::String>(env, url_);
+
     url = callback.Call(env, method, kind, url);
-    return jni::Make<std::string>(env, url);
+    auto urlStr = jni::Make<std::string>(env, url);
+    jni::DeleteLocalRef(env, url);
+    return urlStr;
 }
 
 } // namespace android

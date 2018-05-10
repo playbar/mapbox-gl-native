@@ -1,7 +1,10 @@
 #import "MGLTileSource_Private.h"
 
 #import "MGLAttributionInfo_Private.h"
+#import "MGLGeometry_Private.h"
+#import "MGLRasterDEMSource.h"
 #import "NSString+MGLAdditions.h"
+#import "NSValue+MGLAdditions.h"
 
 #if TARGET_OS_IPHONE
     #import <UIKit/UIKit.h>
@@ -13,9 +16,11 @@
 
 const MGLTileSourceOption MGLTileSourceOptionMinimumZoomLevel = @"MGLTileSourceOptionMinimumZoomLevel";
 const MGLTileSourceOption MGLTileSourceOptionMaximumZoomLevel = @"MGLTileSourceOptionMaximumZoomLevel";
+const MGLTileSourceOption MGLTileSourceOptionCoordinateBounds = @"MGLTileSourceOptionCoordinateBounds";
 const MGLTileSourceOption MGLTileSourceOptionAttributionHTMLString = @"MGLTileSourceOptionAttributionHTMLString";
 const MGLTileSourceOption MGLTileSourceOptionAttributionInfos = @"MGLTileSourceOptionAttributionInfos";
 const MGLTileSourceOption MGLTileSourceOptionTileCoordinateSystem = @"MGLTileSourceOptionTileCoordinateSystem";
+const MGLTileSourceOption MGLTileSourceOptionDEMEncoding = @"MGLTileSourceOptionDEMEncoding";
 
 @implementation MGLTileSource
 
@@ -25,11 +30,11 @@ const MGLTileSourceOption MGLTileSourceOptionTileCoordinateSystem = @"MGLTileSou
     return nil;
 }
 
-- (NS_ARRAY_OF(MGLAttributionInfo *) *)attributionInfos {
+- (NSArray<MGLAttributionInfo *> *)attributionInfos {
     return [self attributionInfosWithFontSize:0 linkColor:nil];
 }
 
-- (NS_ARRAY_OF(MGLAttributionInfo *) *)attributionInfosWithFontSize:(CGFloat)fontSize linkColor:(nullable MGLColor *)linkColor {
+- (NSArray<MGLAttributionInfo *> *)attributionInfosWithFontSize:(CGFloat)fontSize linkColor:(nullable MGLColor *)linkColor {
     return [MGLAttributionInfo attributionInfosFromHTMLString:self.attributionHTMLString
                                                      fontSize:fontSize
                                                     linkColor:linkColor];
@@ -43,7 +48,7 @@ const MGLTileSourceOption MGLTileSourceOptionTileCoordinateSystem = @"MGLTileSou
 
 @end
 
-mbgl::Tileset MGLTileSetFromTileURLTemplates(NS_ARRAY_OF(NSString *) *tileURLTemplates, NS_DICTIONARY_OF(MGLTileSourceOption, id) * _Nullable options) {
+mbgl::Tileset MGLTileSetFromTileURLTemplates(NSArray<NSString *> *tileURLTemplates, NSDictionary<MGLTileSourceOption, id> * _Nullable options) {
     mbgl::Tileset tileSet;
 
     for (NSString *tileURLTemplate in tileURLTemplates) {
@@ -69,6 +74,15 @@ mbgl::Tileset MGLTileSetFromTileURLTemplates(NS_ARRAY_OF(NSString *) *tileURLTem
     if (tileSet.zoomRange.min > tileSet.zoomRange.max) {
         [NSException raise:NSInvalidArgumentException
                     format:@"MGLTileSourceOptionMinimumZoomLevel must be less than MGLTileSourceOptionMaximumZoomLevel."];
+    }
+    
+    if (NSValue *coordinateBounds = options[MGLTileSourceOptionCoordinateBounds]) {
+        if (![coordinateBounds isKindOfClass:[NSValue class]]
+            && strcmp(coordinateBounds.objCType, @encode(MGLCoordinateBounds)) == 0) {
+            [NSException raise:NSInvalidArgumentException
+                        format:@"MGLTileSourceOptionCoordinateBounds must be set to an NSValue containing an MGLCoordinateBounds."];
+        }
+        tileSet.bounds = MGLLatLngBoundsFromCoordinateBounds(coordinateBounds.MGLCoordinateBoundsValue);
     }
 
     if (NSString *attribution = options[MGLTileSourceOptionAttributionHTMLString]) {
@@ -113,6 +127,23 @@ mbgl::Tileset MGLTileSetFromTileURLTemplates(NS_ARRAY_OF(NSString *) *tileURLTem
                 break;
             case MGLTileCoordinateSystemTMS:
                 tileSet.scheme = mbgl::Tileset::Scheme::TMS;
+                break;
+        }
+    }
+
+    if (NSNumber *demEncodingNumber = options[MGLTileSourceOptionDEMEncoding]) {
+        if (![demEncodingNumber isKindOfClass:[NSValue class]]) {
+            [NSException raise:NSInvalidArgumentException
+                        format:@"MGLTileSourceOptionDEMEncoding must be set to an NSValue or NSNumber."];
+        }
+        MGLDEMEncoding demEncoding;
+        [demEncodingNumber getValue:&demEncoding];
+        switch (demEncoding) {
+            case MGLDEMEncodingMapbox:
+                tileSet.encoding = mbgl::Tileset::DEMEncoding::Mapbox;
+                break;
+            case MGLDEMEncodingTerrarium:
+                tileSet.encoding = mbgl::Tileset::DEMEncoding::Terrarium;
                 break;
         }
     }

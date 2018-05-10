@@ -18,7 +18,7 @@
   "LocationPickerActivity",
   "GeoJsonClusteringActivity",
   "RuntimeStyleTestActivity",
-  "AnimatedMarkerActivity",
+  "AnimatedSymbolLayerActivity",
   "ViewPagerActivity",
   "MapFragmentActivity",
   "SupportMapFragmentActivity",
@@ -27,5 +27,11 @@
   "QueryRenderedFeaturesBoxHighlightActivity",
   "MultiMapActivity",
   "MapInDialogActivity",
+  "ManualZoomActivity",
+  "MaxMinZoomActivity",
+  "ScrollByActivity",
+  "ZoomFunctionSymbolLayerActivity",
+  "SymbolGeneratorActivity",
+  "TextureViewTransparentBackgroundActivity",
   "SimpleMapActivity"
 ]

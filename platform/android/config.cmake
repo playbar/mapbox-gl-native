@@ -158,6 +158,10 @@ add_library(mbgl-android STATIC
     platform/android/src/style/layers/fill_extrusion_layer.hpp
     platform/android/src/style/layers/fill_layer.cpp
     platform/android/src/style/layers/fill_layer.hpp
+    platform/android/src/style/layers/heatmap_layer.cpp
+    platform/android/src/style/layers/heatmap_layer.hpp
+    platform/android/src/style/layers/hillshade_layer.cpp
+    platform/android/src/style/layers/hillshade_layer.hpp
     platform/android/src/style/layers/layer.cpp
     platform/android/src/style/layers/layer.hpp
     platform/android/src/style/layers/layers.cpp
@@ -184,16 +188,8 @@ add_library(mbgl-android STATIC
     platform/android/src/style/sources/vector_source.hpp
     platform/android/src/style/sources/image_source.hpp
     platform/android/src/style/sources/image_source.cpp
-    platform/android/src/style/functions/stop.cpp
-    platform/android/src/style/functions/stop.hpp
-    platform/android/src/style/functions/categorical_stops.cpp
-    platform/android/src/style/functions/categorical_stops.hpp
-    platform/android/src/style/functions/exponential_stops.cpp
-    platform/android/src/style/functions/exponential_stops.hpp
-    platform/android/src/style/functions/identity_stops.cpp
-    platform/android/src/style/functions/identity_stops.hpp
-    platform/android/src/style/functions/interval_stops.cpp
-    platform/android/src/style/functions/interval_stops.hpp
+    platform/android/src/style/sources/raster_dem_source.cpp
+    platform/android/src/style/sources/raster_dem_source.hpp
     platform/android/src/style/position.cpp
     platform/android/src/style/position.hpp
     platform/android/src/style/light.cpp
@@ -216,6 +212,8 @@ add_library(mbgl-android STATIC
     platform/android/src/map_renderer_runnable.hpp
 
     # Java core classes
+    platform/android/src/java/lang.cpp
+    platform/android/src/java/lang.hpp
     platform/android/src/java/util.cpp
     platform/android/src/java/util.hpp
 
@@ -232,6 +230,8 @@ add_library(mbgl-android STATIC
     platform/android/src/geojson/feature_collection.hpp
     platform/android/src/geojson/geometry.cpp
     platform/android/src/geojson/geometry.hpp
+    platform/android/src/geojson/geometry_collection.cpp
+    platform/android/src/geojson/geometry_collection.hpp
     platform/android/src/geojson/line_string.cpp
     platform/android/src/geojson/line_string.hpp
     platform/android/src/geojson/multi_line_string.cpp
@@ -244,8 +244,6 @@ add_library(mbgl-android STATIC
     platform/android/src/geojson/point.hpp
     platform/android/src/geojson/polygon.cpp
     platform/android/src/geojson/polygon.hpp
-    platform/android/src/geojson/position.cpp
-    platform/android/src/geojson/position.hpp
 
     # Geometry
     platform/android/src/geometry/lat_lng.cpp

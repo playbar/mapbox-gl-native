@@ -9,17 +9,21 @@
 #include <mbgl/style/conversion/source.hpp>
 #include <mbgl/style/conversion/layer.hpp>
 #include <mbgl/style/conversion/filter.hpp>
+#include <mbgl/style/conversion/light.hpp>
 
 #include <mbgl/style/layers/background_layer.hpp>
 #include <mbgl/style/layers/circle_layer.hpp>
 #include <mbgl/style/layers/fill_layer.hpp>
 #include <mbgl/style/layers/fill_extrusion_layer.hpp>
+#include <mbgl/style/layers/heatmap_layer.hpp>
+#include <mbgl/style/layers/hillshade_layer.hpp>
 #include <mbgl/style/layers/line_layer.hpp>
 #include <mbgl/style/layers/raster_layer.hpp>
 #include <mbgl/style/layers/symbol_layer.hpp>
 
 #include <mbgl/style/style.hpp>
 #include <mbgl/style/image.hpp>
+#include <mbgl/style/light.hpp>
 #include <mbgl/map/map_observer.hpp>
 #include <mbgl/util/premultiply.hpp>
 
@@ -30,6 +34,7 @@ namespace node_mbgl {
 struct NodeMap::RenderOptions {
     double zoom = 0;
     double bearing = 0;
+    mbgl::style::Light light;
     double pitch = 0;
     double latitude = 0;
     double longitude = 0;
@@ -69,6 +74,7 @@ void NodeMap::Init(v8::Local<v8::Object> target) {
     Nan::SetPrototypeMethod(tpl, "removeLayer", RemoveLayer);
     Nan::SetPrototypeMethod(tpl, "addImage", AddImage);
     Nan::SetPrototypeMethod(tpl, "removeImage", RemoveImage);
+    Nan::SetPrototypeMethod(tpl, "setLayerZoomRange", SetLayerZoomRange);
     Nan::SetPrototypeMethod(tpl, "setLayoutProperty", SetLayoutProperty);
     Nan::SetPrototypeMethod(tpl, "setPaintProperty", SetPaintProperty);
     Nan::SetPrototypeMethod(tpl, "setFilter", SetFilter);
@@ -76,6 +82,7 @@ void NodeMap::Init(v8::Local<v8::Object> target) {
     Nan::SetPrototypeMethod(tpl, "setZoom", SetZoom);
     Nan::SetPrototypeMethod(tpl, "setBearing", SetBearing);
     Nan::SetPrototypeMethod(tpl, "setPitch", SetPitch);
+    Nan::SetPrototypeMethod(tpl, "setLight", SetLight);
     Nan::SetPrototypeMethod(tpl, "setAxonometric", SetAxonometric);
     Nan::SetPrototypeMethod(tpl, "setXSkew", SetXSkew);
     Nan::SetPrototypeMethod(tpl, "setYSkew", SetYSkew);
@@ -265,6 +272,16 @@ NodeMap::RenderOptions NodeMap::ParseOptions(v8::Local<v8::Object> obj) {
         options.pitch = Nan::Get(obj, Nan::New("pitch").ToLocalChecked()).ToLocalChecked()->NumberValue();
     }
 
+    if (Nan::Has(obj, Nan::New("light").ToLocalChecked()).FromJust()) {
+        auto lightObj = Nan::Get(obj, Nan::New("light").ToLocalChecked()).ToLocalChecked();
+        mbgl::style::conversion::Error conversionError;
+        if (auto light = mbgl::style::conversion::convert<mbgl::style::Light>(lightObj, conversionError)) {
+            options.light = *light;
+        } else {
+            throw conversionError;
+        }
+    }
+
     if (Nan::Has(obj, Nan::New("axonometric").ToLocalChecked()).FromJust()) {
         options.axonometric = Nan::Get(obj, Nan::New("axonometric").ToLocalChecked()).ToLocalChecked()->BooleanValue();
     }
@@ -372,14 +389,14 @@ void NodeMap::Render(const Nan::FunctionCallbackInfo<v8::Value>& info) {
         return Nan::ThrowError("Map is currently rendering an image");
     }
 
-    auto options = ParseOptions(Nan::To<v8::Object>(info[0]).ToLocalChecked());
-
-    assert(!nodeMap->callback);
-    assert(!nodeMap->image.data);
-    nodeMap->callback = std::make_unique<Nan::Callback>(info[1].As<v8::Function>());
-
     try {
+        auto options = ParseOptions(Nan::To<v8::Object>(info[0]).ToLocalChecked());
+        assert(!nodeMap->callback);
+        assert(!nodeMap->image.data);
+        nodeMap->callback = std::make_unique<Nan::Callback>(info[1].As<v8::Function>());
         nodeMap->startRender(std::move(options));
+    } catch (mbgl::style::conversion::Error& err) {
+        return Nan::ThrowTypeError(err.message.c_str());
     } catch (mbgl::util::Exception &ex) {
         return Nan::ThrowError(ex.what());
     }
@@ -724,6 +741,33 @@ void NodeMap::RemoveImage(const Nan::FunctionCallbackInfo<v8::Value>& info) {
 
     nodeMap->map->getStyle().removeImage(*Nan::Utf8String(info[0]));
 }
+    
+void NodeMap::SetLayerZoomRange(const Nan::FunctionCallbackInfo<v8::Value>& info) {
+    using namespace mbgl::style;
+
+    auto nodeMap = Nan::ObjectWrap::Unwrap<NodeMap>(info.Holder());
+    if (!nodeMap->map) return Nan::ThrowError(releasedMessage());
+    
+    if (info.Length() != 3) {
+        return Nan::ThrowTypeError("Three arguments required");
+    }
+    
+    if (!info[0]->IsString()) {
+        return Nan::ThrowTypeError("First argument must be a string");
+    }
+    
+    if (!info[1]->IsNumber() || !info[2]->IsNumber()) {
+        return Nan::ThrowTypeError("Second and third arguments must be numbers");
+    }
+    
+    mbgl::style::Layer* layer = nodeMap->map->getStyle().getLayer(*Nan::Utf8String(info[0]));
+    if (!layer) {
+        return Nan::ThrowTypeError("layer not found");
+    }
+
+    layer->setMinZoom(info[1]->NumberValue());
+    layer->setMaxZoom(info[2]->NumberValue());
+}
 
 void NodeMap::SetLayoutProperty(const Nan::FunctionCallbackInfo<v8::Value>& info) {
     using namespace mbgl::style;
@@ -797,6 +841,10 @@ struct SetFilterVisitor {
     }
 
     void operator()(mbgl::style::RasterLayer&) {
+        Nan::ThrowTypeError("layer doesn't support filters");
+    }
+
+    void operator()(mbgl::style::HillshadeLayer&) {
         Nan::ThrowTypeError("layer doesn't support filters");
     }
 
@@ -912,6 +960,31 @@ void NodeMap::SetPitch(const Nan::FunctionCallbackInfo<v8::Value>& info) {
 
     try {
         nodeMap->map->setPitch(info[0]->NumberValue());
+    } catch (const std::exception &ex) {
+        return Nan::ThrowError(ex.what());
+    }
+
+    info.GetReturnValue().SetUndefined();
+}
+
+void NodeMap::SetLight(const Nan::FunctionCallbackInfo<v8::Value>& info) {
+    using namespace mbgl::style;
+    using namespace mbgl::style::conversion;
+
+    auto nodeMap = Nan::ObjectWrap::Unwrap<NodeMap>(info.Holder());
+    if (!nodeMap->map) return Nan::ThrowError(releasedMessage());
+
+    if (info.Length() <= 0 || !info[0]->IsObject()) {
+        return Nan::ThrowTypeError("First argument must be an object");
+    }
+
+    try {
+        Error conversionError;
+        if (auto light = convert<mbgl::style::Light>(info[0], conversionError)) {
+            nodeMap->map->getStyle().setLight(std::make_unique<Light>(*light));
+        } else {
+            return Nan::ThrowTypeError(conversionError.message.c_str());
+        }
     } catch (const std::exception &ex) {
         return Nan::ThrowError(ex.what());
     }
@@ -1109,6 +1182,10 @@ NodeMap::~NodeMap() {
 
 std::unique_ptr<mbgl::AsyncRequest> NodeMap::request(const mbgl::Resource& resource, mbgl::FileSource::Callback callback_) {
     Nan::HandleScope scope;
+    // Because this method may be called while this NodeMap is already eligible for garbage collection,
+    // we need to explicitly hold onto our own handle here so that GC during a v8 call doesn't destroy
+    // *this while we're still executing code.
+    handle();
 
     v8::Local<v8::Value> argv[] = {
         Nan::New<v8::External>(this),

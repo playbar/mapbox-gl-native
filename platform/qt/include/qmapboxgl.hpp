@@ -26,6 +26,11 @@ public:
         SharedGLContext
     };
 
+    enum MapMode {
+        Continuous = 0,
+        Static
+    };
+
     enum ConstrainMode {
         NoConstrain = 0,
         ConstrainHeightOnly,
@@ -39,6 +44,9 @@ public:
 
     GLContextMode contextMode() const;
     void setContextMode(GLContextMode);
+
+    MapMode mapMode() const;
+    void setMapMode(MapMode);
 
     ConstrainMode constrainMode() const;
     void setConstrainMode(ConstrainMode);
@@ -66,6 +74,7 @@ public:
 
 private:
     GLContextMode m_contextMode;
+    MapMode m_mapMode;
     ConstrainMode m_constrainMode;
     ViewportMode m_viewportMode;
 
@@ -117,6 +126,13 @@ public:
         MapChangeDidFinishRenderingMapFullyRendered,
         MapChangeDidFinishLoadingStyle,
         MapChangeSourceDidChange
+    };
+
+    enum MapLoadingFailure {
+        StyleParseFailure,
+        StyleLoadFailure,
+        NotFoundFailure,
+        UnknownFailure
     };
 
     // Determines the orientation of the map.
@@ -191,8 +207,7 @@ public:
     void scaleBy(double scale, const QPointF &center = QPointF());
     void rotateBy(const QPointF &first, const QPointF &second);
 
-    void resize(const QSize &size, const QSize &framebufferSize);
-    void setFramebufferObject(quint32 fbo);
+    void resize(const QSize &size);
 
     double metersPerPixelAtLatitude(double latitude, double zoom) const;
     QMapbox::ProjectedMeters projectedMetersForCoordinate(const QMapbox::Coordinate &) const;
@@ -215,10 +230,7 @@ public:
     void removeImage(const QString &name);
 
     void addCustomLayer(const QString &id,
-        QMapbox::CustomLayerInitializeFunction,
-        QMapbox::CustomLayerRenderFunction,
-        QMapbox::CustomLayerDeinitializeFunction,
-        void* context,
+        QScopedPointer<QMapbox::CustomLayerHostInterface>& host,
         const QString& before = QString());
     void addLayer(const QVariantMap &params, const QString& before = QString());
     bool layerExists(const QString &id);
@@ -226,14 +238,27 @@ public:
 
     void setFilter(const QString &layer, const QVariant &filter);
 
+    // When rendering on a different thread,
+    // should be called on the render thread.
+    void createRenderer();
+    void destroyRenderer();
+    void setFramebufferObject(quint32 fbo, const QSize &size);
+
 public slots:
     void render();
     void connectionEstablished();
 
+    // Commit changes, load all the resources
+    // and renders the map when completed.
+    void startStaticRender();
+
 signals:
     void needsRendering();
     void mapChanged(QMapboxGL::MapChange);
+    void mapLoadingFailed(QMapboxGL::MapLoadingFailure, const QString &reason);
     void copyrightsChanged(const QString &copyrightsHtml);
+
+    void staticRenderFinished(const QString &error);
 
 private:
     Q_DISABLE_COPY(QMapboxGL)
@@ -242,5 +267,6 @@ private:
 };
 
 Q_DECLARE_METATYPE(QMapboxGL::MapChange);
+Q_DECLARE_METATYPE(QMapboxGL::MapLoadingFailure);
 
 #endif // QMAPBOXGL_H

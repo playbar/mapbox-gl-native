@@ -41,7 +41,7 @@ void RenderImageSource::startRender(PaintParameters& parameters) {
         mat4 matrix;
         matrix::identity(matrix);
         parameters.state.matrixFor(matrix, tileIds[i]);
-        matrix::multiply(matrix, parameters.projMatrix, matrix);
+        matrix::multiply(matrix, parameters.alignedProjMatrix, matrix);
         matrices.push_back(matrix);
     }
 
@@ -85,7 +85,7 @@ RenderImageSource::queryRenderedFeatures(const ScreenLineString&,
                                          const TransformState&,
                                          const std::vector<const RenderLayer*>&,
                                          const RenderedQueryOptions&,
-                                         const CollisionIndex&) const {
+                                         const mat4&) const {
     return std::unordered_map<std::string, std::vector<Feature>> {};
 }
 

@@ -14,6 +14,8 @@
 #include <mbgl/renderer/layers/render_background_layer.hpp>
 #include <mbgl/renderer/layers/render_custom_layer.hpp>
 #include <mbgl/renderer/layers/render_fill_extrusion_layer.hpp>
+#include <mbgl/renderer/layers/render_heatmap_layer.hpp>
+#include <mbgl/renderer/layers/render_hillshade_layer.hpp>
 #include <mbgl/renderer/style_diff.hpp>
 #include <mbgl/renderer/query.hpp>
 #include <mbgl/renderer/backend_scope.hpp>
@@ -83,11 +85,6 @@ void Renderer::Impl::setObserver(RendererObserver* observer_) {
 
 void Renderer::Impl::render(const UpdateParameters& updateParameters) {
     if (updateParameters.mode != MapMode::Continuous) {
-        // Don't load/render anyting in still mode until explicitly requested.
-        if (!updateParameters.stillImageRequest) {
-            return;
-        }
-
         // Reset zoom history state.
         zoomHistory.first = true;
     }
@@ -184,6 +181,10 @@ void Renderer::Impl::render(const UpdateParameters& updateParameters) {
 
         if (layerAdded || layerChanged) {
             layer.transition(transitionParameters);
+
+            if (layer.is<RenderHeatmapLayer>()) {
+                layer.as<RenderHeatmapLayer>()->updateColorRamp();
+            }
         }
 
         if (layerAdded || layerChanged || zoomChanged || layer.hasTransition()) {
@@ -289,7 +290,11 @@ void Renderer::Impl::render(const UpdateParameters& updateParameters) {
         RenderLayer* layer = getRenderLayer(layerImpl->id);
         assert(layer);
 
-        if (!parameters.staticData.has3D && layer->is<RenderFillExtrusionLayer>()) {
+        if (!parameters.staticData.has3D && (
+                layer->is<RenderFillExtrusionLayer>() ||
+                layer->is<RenderHillshadeLayer>() ||
+                layer->is<RenderHeatmapLayer>())) {
+
             parameters.staticData.has3D = true;
         }
 
@@ -391,10 +396,6 @@ void Renderer::Impl::render(const UpdateParameters& updateParameters) {
         }
 
         placementChanged = newPlacement->commit(*placement, parameters.timePoint);
-        // commitFeatureIndexes depends on the assumption that no new FeatureIndex has been loaded since placement
-        // started. If we violate this assumption, then we need to either make CollisionIndex completely independendent of
-        // FeatureIndex, or find a way for its entries to point to multiple FeatureIndexes.
-        commitFeatureIndexes();
         crossTileSymbolIndex.pruneUnusedLayers(usedSymbolLayers);
         if (placementChanged || symbolBucketsChanged) {
             placement = std::move(newPlacement);
@@ -663,6 +664,39 @@ std::vector<Feature> Renderer::Impl::queryRenderedFeatures(const ScreenLineStrin
 
     return queryRenderedFeatures(geometry, options, layers);
 }
+    
+void Renderer::Impl::queryRenderedSymbols(std::unordered_map<std::string, std::vector<Feature>>& resultsByLayer,
+                                          const ScreenLineString& geometry,
+                                          const std::vector<const RenderLayer*>& layers,
+                                          const RenderedQueryOptions& options) const {
+    
+    auto renderedSymbols = placement->getCollisionIndex().queryRenderedSymbols(geometry);
+    std::vector<std::reference_wrapper<const RetainedQueryData>> bucketQueryData;
+    for (auto entry : renderedSymbols) {
+        bucketQueryData.push_back(placement->getQueryData(entry.first));
+    }
+    // Although symbol query is global, symbol results are only sortable within a bucket
+    // For a predictable global sort order, we sort the buckets based on their corresponding tile position
+    std::sort(bucketQueryData.begin(), bucketQueryData.end(), [](const RetainedQueryData& a, const RetainedQueryData& b) {
+        return
+            std::tie(a.tileID.canonical.z, a.tileID.canonical.y, a.tileID.wrap, a.tileID.canonical.x) <
+            std::tie(b.tileID.canonical.z, b.tileID.canonical.y, b.tileID.wrap, b.tileID.canonical.x);
+    });
+    
+    for (auto wrappedQueryData : bucketQueryData) {
+        auto& queryData = wrappedQueryData.get();
+        auto bucketSymbols = queryData.featureIndex->lookupSymbolFeatures(renderedSymbols[queryData.bucketInstanceId],
+                                                                          options,
+                                                                          layers,
+                                                                          queryData.tileID,
+                                                                          queryData.featureSortOrder);
+        
+        for (auto layer : bucketSymbols) {
+            auto& resultFeatures = resultsByLayer[layer.first];
+            std::move(layer.second.begin(), layer.second.end(), std::inserter(resultFeatures, resultFeatures.end()));
+        }
+    }
+}
 
 std::vector<Feature> Renderer::Impl::queryRenderedFeatures(const ScreenLineString& geometry, const RenderedQueryOptions& options, const std::vector<const RenderLayer*>& layers) const {
     std::unordered_set<std::string> sourceIDs;
@@ -670,13 +704,18 @@ std::vector<Feature> Renderer::Impl::queryRenderedFeatures(const ScreenLineStrin
         sourceIDs.emplace(layer->baseImpl->source);
     }
 
+    mat4 projMatrix;
+    transformState.getProjMatrix(projMatrix);
+
     std::unordered_map<std::string, std::vector<Feature>> resultsByLayer;
     for (const auto& sourceID : sourceIDs) {
         if (RenderSource* renderSource = getRenderSource(sourceID)) {
-            auto sourceResults = renderSource->queryRenderedFeatures(geometry, transformState, layers, options, placement->getCollisionIndex());
+            auto sourceResults = renderSource->queryRenderedFeatures(geometry, transformState, layers, options, projMatrix);
             std::move(sourceResults.begin(), sourceResults.end(), std::inserter(resultsByLayer, resultsByLayer.begin()));
         }
     }
+    
+    queryRenderedSymbols(resultsByLayer, geometry, layers, options);
 
     std::vector<Feature> result;
 
@@ -721,12 +760,12 @@ std::vector<Feature> Renderer::Impl::querySourceFeatures(const std::string& sour
     return source->querySourceFeatures(options);
 }
 
-void Renderer::Impl::onLowMemory() {
+void Renderer::Impl::reduceMemoryUse() {
     assert(BackendScope::exists());
-    backend.getContext().performCleanup();
     for (const auto& entry : renderSources) {
-        entry.second->onLowMemory();
+        entry.second->reduceMemoryUse();
     }
+    backend.getContext().performCleanup();
     observer->onInvalidate();
 }
 
@@ -773,15 +812,6 @@ bool Renderer::Impl::hasTransitions(TimePoint timePoint) const {
     }
 
     return false;
-}
-
-void Renderer::Impl::commitFeatureIndexes() {
-    for (auto& source : renderSources) {
-        for (auto& renderTile : source.second->getRenderTiles()) {
-            Tile& tile = renderTile.get().tile;
-            tile.commitFeatureIndex();
-        }
-    }
 }
 
 void Renderer::Impl::updateFadingTiles() {

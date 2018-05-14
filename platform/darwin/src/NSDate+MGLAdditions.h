@@ -1,7 +1,6 @@
 #import <Foundation/Foundation.h>
 
 #import "MGLFoundation.h"
-#include "mbgl/util/geo.hpp"
 #include <mbgl/util/chrono.hpp>
 
 NS_ASSUME_NONNULL_BEGIN

@@ -42,8 +42,6 @@ public:
     template <class... Args>
     Thread(const std::string& name, Args&&... args) {
         std::promise<void> running;
-        
-        printf("File:%s, Fun:%s, Line:%d, name=%s \n", strrchr(__FILE__, '/')+1, __FUNCTION__, __LINE__, name.c_str());
 
         thread = std::thread([&] {
             platform::setCurrentThreadName(name);

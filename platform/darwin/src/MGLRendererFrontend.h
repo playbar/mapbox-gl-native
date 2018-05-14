@@ -4,7 +4,6 @@
 #include <mbgl/renderer/renderer_frontend.hpp>
 #include <mbgl/util/async_task.hpp>
 #include <mbgl/util/optional.hpp>
-#include <mbgl/util/leak_detector.h>
 
 
 /**
@@ -51,7 +50,6 @@ public:
         mbgl::BackendScope guard { mbglBackend, mbgl::BackendScope::ScopeType::Implicit };
         
         renderer->render(*updateParameters);
-        report_mem_leak();
     }
     
     mbgl::Renderer* getRenderer() {

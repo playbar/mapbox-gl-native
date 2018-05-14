@@ -53,10 +53,6 @@ void Style::Impl::loadURL(const std::string& url_) {
 
     loaded = false;
     url = url_;
-    
-    std::string s1("hi"), s2;
-//    s2 = std::move(std::string("bye1!"));
-    s2 = std::move(s1);
 
     styleRequest = fileSource.request(Resource::style(url), [this](Response res) {
         // Don't allow a loaded, mutated style to be overwritten with a new version.

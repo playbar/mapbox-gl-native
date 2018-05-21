@@ -1069,12 +1069,13 @@ NSArray *MGLSubexpressionsWithJSONObjects(NSArray *objects) {
         }
             
         case NSKeyPathExpressionType: {
-            NSArray *expressionObject;
-            for (NSString *pathComponent in self.keyPath.pathComponents.reverseObjectEnumerator) {
+            NSMutableArray *expressionObject;
+            NSArray *keyPath = [self.keyPath componentsSeparatedByString:@"."];
+            for (NSString *pathComponent in keyPath.reverseObjectEnumerator) {
                 if (expressionObject) {
-                    expressionObject = @[@"get", pathComponent, expressionObject];
+                    [expressionObject addObject:@[@"get", pathComponent]];
                 } else {
-                    expressionObject = @[@"get", pathComponent];
+                    expressionObject =[NSMutableArray arrayWithObjects:@"get", pathComponent, nil];
                 }
             }
             return expressionObject;

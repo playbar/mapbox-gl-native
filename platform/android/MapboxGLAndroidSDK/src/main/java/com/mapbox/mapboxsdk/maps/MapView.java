@@ -119,7 +119,9 @@ public class MapView extends FrameLayout implements NativeMapView.ViewCallback {
     initialise(context, options == null ? MapboxMapOptions.createFromAttributes(context, null) : options);
   }
 
-  private void initialise(@NonNull final Context context, @NonNull final MapboxMapOptions options) {
+  @CallSuper
+  @UiThread
+  protected void initialise(@NonNull final Context context, @NonNull final MapboxMapOptions options) {
     if (isInEditMode()) {
       // in IDE layout editor, just return
       return;
